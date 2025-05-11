@@ -30,11 +30,11 @@ This can be convenient and even more correct in some cases. However, when workin
 Simply add all `.cpp` files to your project so the compiler can build the functions that will serve as *CRT* alternatives. Use the standard development environment headers (`cstring`, etc.).
 
 ## Recommendations
-`CRT-0` assumes that you will not use *Thread Local Storage* in your project (e.g., static variables inside functions, `thread_local`, etc.), as this is considered overhead. Use the `/Zc:threadSafeInit-` flag to prevent the generation of TLS-related code for static variables within functions.
+*CRT-0* assumes that you will not use *Thread Local Storage* in your project (e.g., static variables inside functions, `thread_local`, etc.), as this is considered overhead. Use the `/Zc:threadSafeInit-` flag to prevent the generation of TLS-related code for static variables within functions.
 
-In general, any options related to the `CRT` should be disabled. This includes `Basic Runtime Checks`, `C++ Exceptions`, `Runtime Library`, `Security Check`, `SDL checks`, and `Run-Time Type Information`. If any of these options are enabled, `CRT-0` is likely to fail to compile due to linkage conflicts.
+In general, any options related to the *CRT* should be disabled. This includes `Basic Runtime Checks`, `C++ Exceptions`, `Runtime Library`, `Security Check`, `SDL checks`, and `Run-Time Type Information`. If any of these options are enabled, *CRT-0* is likely to fail to compile due to linkage conflicts.
 
-The project has only been tested on Windows, x64. Other operating systems have not been tested and `CRT-0` is unlikely to work on them. `CRT-0` will definitely not work on x32 architecture due to the compiler implicitly injecting functions like `_alldiv`, `_allrem`, etc., when handling 64-bit arithmetic.
+The project has only been built and tested for Windows, x64. Other configurations have not been thoroughly tested, and it is unlikely that *CRT-0* will work for them. *CRT-0* definitely cannot be built for x32 due to the compiler implicitly inserting functions like `__alldiv`, `__allrem`, etc., when handling 64-bit arithmetic.
 
 ## License
 This product is distributed under the MIT-0 License.
