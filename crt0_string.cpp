@@ -55,7 +55,7 @@ CRT_API char *CRT_CALL strcpy(char *lpDest, const char *lpSrc)
 	return lpResult;
 }
 
-char *strncpy(char *lpDest, const char *lpSrc, size_t dwMaxLen)
+CRT_API char *CRT_CALL strncpy(char *lpDest, const char *lpSrc, size_t dwMaxLen)
 {
 	char *lpResult = lpDest;
 	size_t len = 0;

@@ -116,3 +116,17 @@ CRT_API clock_t CRT_CALL clock()
 	ULONGLONG ms = GetTickCount64();
 	return static_cast<clock_t>(ms * CLOCKS_PER_SEC / 1000);
 }
+
+CRT_API long long CRT_CALL _Query_perf_counter()
+{
+	LARGE_INTEGER counter;
+	QueryPerformanceCounter(&counter);
+	return counter.QuadPart;
+}
+
+CRT_API long long CRT_CALL _Query_perf_frequency()
+{
+	LARGE_INTEGER freq;
+	QueryPerformanceFrequency(&freq);
+	return freq.QuadPart;
+}
