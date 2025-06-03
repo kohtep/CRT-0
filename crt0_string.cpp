@@ -70,6 +70,27 @@ CRT_API char *CRT_CALL strncpy(char *lpDest, const char *lpSrc, size_t dwMaxLen)
 	return lpResult;
 }
 
+CRT_API int CRT_CALL strncpy_s(char *_Destination, rsize_t _SizeInBytes, char const *_Source, rsize_t _MaxCount)
+{
+	if (!_Destination || !_Source || _SizeInBytes == 0)
+		return 1;
+
+	rsize_t i = 0;
+
+	while (i < _MaxCount && i < _SizeInBytes - 1 && _Source[i] != '\0')
+	{
+		_Destination[i] = _Source[i];
+		++i;
+	}
+
+	if (i < _SizeInBytes)
+		_Destination[i] = '\0';
+	else if (_SizeInBytes > 0)
+		_Destination[_SizeInBytes - 1] = '\0';
+
+	return 0;
+}
+
 CRT_API char *CRT_CALL strerror(int errnum)
 {
 	static char buffer[128];
@@ -308,6 +329,115 @@ CRT_API double CRT_CALL strtod(const char *str, char **endptr)
 
 	if (endptr)
 		*endptr = const_cast<char *>(str);
-
+	
 	return neg ? -result : result;
+}
+
+CRT_API char *CRT_CALL strtok(char *str, const char *delim)
+{
+	static char *current;
+	if (str)
+		current = str;
+
+	if (!current)
+		return 0;
+
+	while (*current)
+	{
+		const char *d = delim;
+		while (*d)
+		{
+			if (*current == *d)
+				break;
+			++d;
+		}
+		if (!*d)
+			break;
+		++current;
+	}
+
+	if (!*current)
+		return 0;
+
+	char *token_start = current;
+
+	while (*current)
+	{
+		const char *d = delim;
+		while (*d)
+		{
+			if (*current == *d)
+				break;
+			++d;
+		}
+		if (*d)
+		{
+			*current = '\0';
+			++current;
+			return token_start;
+		}
+		++current;
+	}
+
+	return token_start;
+}
+
+CRT_API int CRT_CALL atoi(const char *str)
+{
+	int result = 0;
+	int sign = 1;
+
+	while (*str == ' ' || *str == '\t' || *str == '\n')
+		++str;
+
+	if (*str == '-')
+	{
+		sign = -1;
+		++str;
+	}
+	else if (*str == '+')
+		++str;
+
+	while (*str >= '0' && *str <= '9')
+	{
+		result = result * 10 + (*str - '0');
+		++str;
+	}
+
+	return result * sign;
+}
+
+CRT_API char *CRT_CALL strtok_s(char *str, const char *delim, char **context)
+{
+	if (!str)
+		str = *context;
+
+	if (!str)
+		return nullptr;
+
+	while (*str && strchr(delim, *str))
+		++str;
+
+	if (*str == '\0')
+	{
+		*context = nullptr;
+		return nullptr;
+	}
+
+	char *token_start = str;
+
+	while (*str && !strchr(delim, *str))
+		++str;
+
+	if (*str)
+	{
+		*str = '\0';
+		*context = str + 1;
+	}
+	else
+	{
+		*context = nullptr;
+	}
+
+	return token_start;
 }

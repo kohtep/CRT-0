@@ -7,3 +7,9 @@ CRT_API int CRT_CALL _CrtDbgReport(int _ReportType, char const *_FileName, int _
 {
 	return 0;
 }
+
+CRT_API int CRT_CALL _CrtDbgReportW(int _ReportType, wchar_t const *_FileName, int _LineNumber,
+	wchar_t const *_ModuleName, wchar_t const *_Format, ...)
+{
+	return 0;
+}

@@ -21,6 +21,20 @@ CRT_NO_INTRINSIC(atan2);
 CRT_NO_INTRINSIC(asin);
 CRT_NO_INTRINSIC(acos);
 
+CRT_NO_INTRINSIC(sinf);
+CRT_NO_INTRINSIC(_dtest);
+CRT_NO_INTRINSIC(_dclass);
+CRT_NO_INTRINSIC(_ldtest);
+CRT_NO_INTRINSIC(_fdtest);
+CRT_NO_INTRINSIC(_fdclass);
+
+CRT_NO_INTRINSIC(sqrtf);
+CRT_NO_INTRINSIC(roundf);
+CRT_NO_INTRINSIC(floorf);
+CRT_NO_INTRINSIC(cosf);
+CRT_NO_INTRINSIC(atan2f);
+CRT_NO_INTRINSIC(asinf);
+
 // Utility
 
 #define CRT_PI 3.14159265358979323846
@@ -480,6 +494,40 @@ CRT_API short CRT_CALL _dtest(double *_Px)
 	}
 }
 
+CRT_API short CRT_CALL _dclass(double _X)
+{
+	union
+	{
+		double d;
+		uint64_t u;
+	} value = { _X };
+
+	uint64_t x = value.u;
+
+	uint64_t exponent = (x >> 52) & 0x7FF;
+	uint64_t mantissa = x & 0xFFFFFFFFFFFFFull;
+
+	if (exponent == 0x7FF)
+	{
+		if (mantissa != 0)
+			return 2; // NaN
+		else
+			return 1; // Infinity
+	}
+	else if (exponent != 0)
+	{
+		return -1; // Normalized number
+	}
+	else if ((x << 1) != 0)
+	{
+		return -2; // Denormalized number
+	}
+	else
+	{
+		return 0; // Zero
+	}
+}
+
 CRT_API short CRT_CALL _ldtest(long double *_Px)
 {
 	return _dtest(reinterpret_cast<double *>(_Px));
@@ -516,4 +564,139 @@ CRT_API short CRT_CALL _fdtest(float *_Px)
 	{
 		return 0; // Zero
 	}
+}
+
+CRT_API short CRT_CALL _fdclass(float _X)
+{
+	return _fdtest(&_X);
+}
+
+CRT_API float CRT_CALL sqrtf(float _X)
+{
+	if (_X < 0.0f)
+		return make_nan_f();
+
+	if (_X == 0.0f)
+		return 0.0f;
+
+	float guess = _X;
+	const float epsilon = 1e-6f;
+
+	for (int i = 0; i < 20; ++i)
+	{
+		float next = 0.5f * (guess + _X / guess);
+
+		if (fabsf(next - guess) < epsilon)
+			break;
+
+		guess = next;
+	}
+
+	return guess;
+}
+
+CRT_API float CRT_CALL roundf(float _X)
+{
+	int i = (int)(_X >= 0.0f ? _X + 0.5f : _X - 0.5f);
+	return (float)i;
+}
+
+CRT_API float CRT_CALL floorf(float _X)
+{
+	int i = (int)_X;
+
+	if (_X < 0.0f && _X != (float)i)
+		i -= 1;
+
+	return (float)i;
+}
+
+
+CRT_API float CRT_CALL cosf(float x)
+{
+	x = x - CRT_TWO_PI_F * floorf(x / CRT_TWO_PI_F);
+
+	if (x > CRT_PI_F)
+		x -= CRT_TWO_PI_F;
+
+	if (x < -CRT_PI_F)
+		x += CRT_TWO_PI_F;
+
+	int sign = 1;
+
+	if (x < 0.0f)
+		x = -x;
+
+	if (x > CRT_HALF_PI_F)
+	{
+		x = CRT_PI_F - x;
+		sign = -1;
+	}
+
+	float x2 = x * x;
+
+	float result = 1.0f
+		- x2 * (1.0f / 2.0f)
+		+ x2 * x2 * (1.0f / 24.0f)
+		- x2 * x2 * x2 * (1.0f / 720.0f);
+
+	return sign * result;
+}
+
+CRT_API float CRT_CALL atan2f(float _Y, float _X)
+{
+	const float n1 = 0.97239411f;
+	const float n2 = -0.19194795f;
+
+	if (_X != _X || _Y != _Y)
+		return make_nan_f();
+
+	if (_X == 0.0f && _Y == 0.0f)
+		return make_nan_f();
+
+	float abs_y = fabsf(_Y);
+	float angle;
+
+	if (fabsf(_X) > abs_y)
+	{
+		float z = _Y / _X;
+		angle = (n1 + n2 * z * z) * z;
+
+		if (_X < 0.0f)
+			angle += (_Y >= 0.0f) ? CRT_PI_F : -CRT_PI_F;
+	}
+	else
+	{
+		if (_Y == 0.0f)
+			return (_X >= 0.0f) ? 0.0f : CRT_PI_F;
+
+		float z = _X / _Y;
+		angle = CRT_HALF_PI_F - (n1 + n2 * z * z) * z;
+
+		if (_Y < 0.0f)
+			angle -= CRT_PI_F;
+	}
+
+	return angle;
+}
+
+CRT_API float CRT_CALL asinf(float x)
+{
+	if (x != x || x < -1.0f || x > 1.0f)
+		return make_nan_f();
+
+	float negate = (float)(x < 0.0f);
+	x = fabs(x);
+
+	float ret = -0.0187293f;
+	ret *= x;
+	ret += 0.0742610f;
+	ret *= x;
+	ret -= 0.2121144f;
+	ret *= x;
+	ret += 1.5707288f;
+
+	ret = CRT_HALF_PI_F - sqrtf(1.0f - x) * ret;
+
+	return ret - 2.0f * negate * ret;
 }

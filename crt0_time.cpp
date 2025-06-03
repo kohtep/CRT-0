@@ -130,3 +130,15 @@ CRT_API long long CRT_CALL _Query_perf_frequency()
 	QueryPerformanceFrequency(&freq);
 	return freq.QuadPart;
 }
+
+CRT_API long long CRT_CALL _Xtime_get_ticks()
+{
+	FILETIME ft;
+	ULARGE_INTEGER uli;
+
+	GetSystemTimePreciseAsFileTime(&ft);
+	uli.LowPart = ft.dwLowDateTime;
+	uli.HighPart = ft.dwHighDateTime;
+
+	return (long long)(uli.QuadPart - 116444736000000000ULL);
+}

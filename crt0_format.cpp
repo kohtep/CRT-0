@@ -309,6 +309,9 @@ struct FormatModifiers
 	bool hasWidth : 1;
 	unsigned int width;
 
+	bool hasPrecision : 1;
+	unsigned int precision;
+
 	char paddingChar = ' ';
 };
 
@@ -499,8 +502,8 @@ static int HandleFloat(char *&pOut, size_t &remaining, va_list &args, const Form
 {
 	char temp[64];
 	int len = modifiers.isLongDouble ?
-		LongDoubleToStr(temp, va_arg(args, long double), 6) :
-		DoubleToStr(temp, va_arg(args, double), 6);
+		LongDoubleToStr(temp, va_arg(args, long double), modifiers.hasPrecision ? modifiers.precision : 6) :
+		DoubleToStr(temp, va_arg(args, double), modifiers.hasPrecision ? modifiers.precision : 6);
 
 	if (modifiers.hasWidth && len < modifiers.width) {
 		size_t pad = modifiers.width - len;
@@ -720,7 +723,6 @@ static FormatHandler FindHandler(char spec)
 static FormatModifiers ParseFormatModifiers(const char *&format)
 {
 	FormatModifiers modifiers = {};
-
 	modifiers.paddingChar = ' ';
 
 	if (*format == '0')
@@ -737,6 +739,19 @@ static FormatModifiers ParseFormatModifiers(const char *&format)
 		while (*format >= '0' && *format <= '9')
 		{
 			modifiers.width = modifiers.width * 10 + (*format - '0');
+			++format;
+		}
+	}
+
+	if (*format == '.')
+	{
+		++format;
+		modifiers.hasPrecision = true;
+		modifiers.precision = 0;
+
+		while (*format >= '0' && *format <= '9')
+		{
+			modifiers.precision = modifiers.precision * 10 + (*format - '0');
 			++format;
 		}
 	}
