@@ -3,8 +3,13 @@
 #include <Windows.h>
 #include <process.h>
 
+void(*crt0_abort_hook)() = nullptr;
+
 CRT_API void CRT_CALL abort()
 {
+	if (crt0_abort_hook)
+		crt0_abort_hook();
+
 	TerminateProcess(GetCurrentProcess(), 3);
 	for (;;) {}
 }

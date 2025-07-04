@@ -60,6 +60,7 @@ void __CRTDECL operator delete[](void *_Block, size_t) noexcept
 		HeapFree(GetProcessHeap(), 0, _Block);
 }
 
+#if 0
 #ifdef __cpp_aligned_new
 void *__CRTDECL operator new(size_t size, std::align_val_t alignment)
 {
@@ -122,4 +123,5 @@ void __CRTDECL operator delete[](void *ptr, size_t, std::align_val_t) noexcept
 {
 	operator delete(ptr, std::align_val_t(alignof(std::max_align_t)));
 }
+#endif
 #endif

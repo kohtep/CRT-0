@@ -24,6 +24,7 @@ CRT_NO_INTRINSIC(acos);
 CRT_NO_INTRINSIC(sinf);
 CRT_NO_INTRINSIC(_dtest);
 CRT_NO_INTRINSIC(_dclass);
+CRT_NO_INTRINSIC(_ldclass);
 CRT_NO_INTRINSIC(_ldtest);
 CRT_NO_INTRINSIC(_fdtest);
 CRT_NO_INTRINSIC(_fdclass);
@@ -204,37 +205,51 @@ CRT_API double CRT_CALL exp(double x)
 	return result;
 }
 
-CRT_API double CRT_CALL frexp(double x, int *exp)
+CRT_API double CRT_CALL frexp(double value, int *exp_out)
 {
-	if (!_finite(x))
+	const uint64_t EXP_MASK = 0x7FF0000000000000ULL;
+	const uint64_t MANT_MASK = 0x000FFFFFFFFFFFFFULL;
+
+	uint64_t bits;
+	memcpy(&bits, &value, sizeof(bits));
+
+	uint64_t exponent_bits = (bits & EXP_MASK) >> 52;
+	uint64_t mantissa_bits = bits & MANT_MASK;
+
+	if (exponent_bits == 0x7FF)
 	{
-		if (exp) *exp = 0;
-		return make_nan();
+		if (exp_out) *exp_out = 0;
+		return value;
 	}
 
-	if (x == 0.0)
+	if (value == 0.0)
 	{
-		if (exp) *exp = 0;
-		return 0.0;
+		if (exp_out) *exp_out = 0;
+		return value;
 	}
 
-	float xf = static_cast<float>(x);
-	int e = 0;
+	int exp;
+	double mantissa;
 
-	while (xf >= 1.0f)
+	if (exponent_bits == 0)
 	{
-		xf *= 0.5f;
-		++e;
+		value *= 0x1.0p+54; 
+		memcpy(&bits, &value, sizeof(bits));
+
+		exponent_bits = (bits & EXP_MASK) >> 52;
+		exp = (int)exponent_bits - 1023 - 54;
+	}
+	else
+	{
+		exp = (int)exponent_bits - 1023;
 	}
 
-	while (xf < 0.5f)
-	{
-		xf *= 2.0f;
-		--e;
-	}
+	bits = (bits & ~(EXP_MASK)) | ((uint64_t)(1022) << 52);
+	memcpy(&mantissa, &bits, sizeof(mantissa));
 
-	if (exp) *exp = e;
-	return static_cast<double>(xf);
+	if (exp_out)
+		*exp_out = exp;
+	return mantissa;
 }
 
 CRT_API double CRT_CALL log(double x)
@@ -491,6 +506,41 @@ CRT_API short CRT_CALL _dtest(double *_Px)
 	else
 	{
 		return 0; // Zero
+	}
+}
+
+CRT_API short CRT_CALL _ldclass(long double _X)
+{
+	union
+	{
+		long double ld;
+		double d;
+	} value = { _X };
+
+	uint64_t x;
+	memcpy(&x, &value.d, sizeof(x));
+
+	uint64_t exponent = (x >> 52) & 0x7FF;
+	uint64_t mantissa = x & 0xFFFFFFFFFFFFFULL;
+
+	if (exponent == 0x7FF)
+	{
+		if (mantissa != 0)
+			return 2;
+		else
+			return 1;
+	}
+	else if (exponent != 0)
+	{
+		return -1;
+	}
+	else if ((x << 1) != 0)
+	{
+		return -2;
+	}
+	else
+	{
+		return 0;
 	}
 }
 

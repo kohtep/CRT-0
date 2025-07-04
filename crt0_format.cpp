@@ -3,229 +3,79 @@
 #include <Windows.h>
 #include <stdio.h>
 
-static bool IsNan(double val)
+static size_t FormatFloatingPoint(char *buffer, long double value, int precision)
 {
-	union
-	{
-		double d;
-		uint64_t u;
-	} db;
+	char *p = buffer;
 
-	db.d = val;
-	uint64_t exp = (db.u >> 52) & 0x7FF;
-	uint64_t frac = db.u & 0xFFFFFFFFFFFFFull;
-	return (exp == 0x7FF) && (frac != 0);
-}
-
-static bool IsInf(double val)
-{
-	union
-	{
-		double d;
-		uint64_t u;
-	} db;
-
-	db.d = val;
-	uint64_t exp = (db.u >> 52) & 0x7FF;
-	uint64_t frac = db.u & 0xFFFFFFFFFFFFFull;
-	return (exp == 0x7FF) && (frac == 0);
-}
-
-static bool IsNan(long double val)
-{
-	union
-	{
-		long double ld;
-		struct
-		{
-			uint64_t mantissa;
-			uint16_t exponent;
-			uint16_t pad[3];
-		} parts;
-	} ld_union = {};
-
-	ld_union.ld = val;
-
-	uint16_t exp = ld_union.parts.exponent & 0x7FFF;
-	uint64_t frac = ld_union.parts.mantissa & 0x7FFFFFFFFFFFFFFF;
-
-	return (exp == 0x7FFF) && (frac != 0);
-}
-
-static bool IsInf(long double val)
-{
-	union
-	{
-		long double ld;
-		struct
-		{
-			uint64_t mantissa;
-			uint16_t exponent;
-			uint16_t pad[3];
-		} parts;
-	} ld_union = {};
-
-	ld_union.ld = val;
-
-	uint16_t exp = ld_union.parts.exponent & 0x7FFF;
-	uint64_t frac = ld_union.parts.mantissa & 0x7FFFFFFFFFFFFFFF;
-
-	return (exp == 0x7FFF) && (frac == 0);
-}
-
-static int Int64ToStr(char *lpBuffer, long long nValue)
-{
-	char *p = lpBuffer;
-	bool bNegative = false;
-
-	if (nValue < 0)
-	{
-		bNegative = true;
-		nValue = -nValue;
-	}
-
-	char temp[21];
-	int i = 0;
-
-	do
-	{
-		temp[i++] = '0' + (nValue % 10);
-		nValue /= 10;
-	} while (nValue > 0);
-
-	if (bNegative)
-		temp[i++] = '-';
-
-	while (i-- > 0)
-		*p++ = temp[i];
-
-	*p = '\0';
-	return static_cast<int>(p - lpBuffer);
-}
-
-static int IntToStr(char *lpBuffer, int nValue)
-{
-	char *p = lpBuffer;
-	bool bNegative = false;
-
-	if (nValue < 0)
-	{
-		bNegative = true;
-		nValue = -nValue;
-	}
-
-	char temp[12];
-	int i = 0;
-
-	do
-	{
-		temp[i++] = '0' + (nValue % 10);
-		nValue /= 10;
-	} while (nValue > 0);
-
-	if (bNegative)
-		temp[i++] = '-';
-
-	while (i-- > 0)
-		*p++ = temp[i];
-
-	*p = '\0';
-	return static_cast<int>(p - lpBuffer);
-}
-
-static int UInt64ToStr(char *lpBuffer, unsigned long long uValue)
-{
-	char *p = lpBuffer;
-	char temp[21];
-	int i = 0;
-
-	do {
-		temp[i++] = '0' + (uValue % 10);
-		uValue /= 10;
-	} while (uValue > 0);
-
-	while (i-- > 0)
-		*p++ = temp[i];
-
-	*p = '\0';
-	return static_cast<int>(p - lpBuffer);
-}
-
-static int UIntToStr(char *lpBuffer, unsigned int uValue)
-{
-	char *p = lpBuffer;
-	char temp[11];
-	int i = 0;
-
-	do
-	{
-		temp[i++] = '0' + (uValue % 10);
-		uValue /= 10;
-	} while (uValue > 0);
-
-	while (i-- > 0)
-		*p++ = temp[i];
-
-	*p = '\0';
-	return static_cast<int>(p - lpBuffer);
-}
-
-static int UInt64ToHex(char *lpBuffer, unsigned long long uValue, bool uppercase)
-{
-	volatile char hexDigits[17];
-
-	if (uppercase)
-	{
-		*(uint32_t *)&hexDigits[0] = '3210';
-		*(uint32_t *)&hexDigits[4] = '7654';
-		*(uint32_t *)&hexDigits[8] = 'BA98';
-		*(uint32_t *)&hexDigits[12] = 'FEDC';
-	}
-	else
-	{
-		*(uint32_t *)&hexDigits[0] = '3210';
-		*(uint32_t *)&hexDigits[4] = '7654';
-		*(uint32_t *)&hexDigits[8] = 'ba98';
-		*(uint32_t *)&hexDigits[12] = 'fedc';
-	}
-
-	char *p = lpBuffer;
-	char temp[17];
-	int i = 0;
-
-	do
-	{
-		unsigned digit = uValue % 16;
-		uValue /= 16;
-
-		if (digit < 10)
-			temp[i++] = hexDigits[digit];
-		else
-			temp[i++] = hexDigits[digit];
-	} while (uValue > 0);
-
-	while (i-- > 0)
-		*p++ = temp[i];
-
-	*p = '\0';
-	return static_cast<int>(p - lpBuffer);
-}
-
-static int DoubleToStr(char *lpBuffer, double value, int precision)
-{
-	char *p = lpBuffer;
-
-	if (IsNan(value))
+	if (isnan(value))
 	{
 		*p++ = 'n'; *p++ = 'a'; *p++ = 'n';
 		*p = '\0';
 		return 3;
 	}
 
-	if (IsInf(value))
+	if (isinf(value))
 	{
 		if (value < 0) *p++ = '-';
 		*p++ = 'i'; *p++ = 'n'; *p++ = 'f';
+		*p = '\0';
+		return static_cast<size_t>(p - buffer);
+	}
+
+	if (value < 0)
+	{
+		*p++ = '-';
+		value = -value;
+	}
+
+	long long intPart = static_cast<long long>(value);
+	char intBuf[21];
+	_i64toa(intPart, intBuf, 10);
+
+	char *ip = intBuf;
+	while (*ip)
+	{
+		*p++ = *ip++;
+	}
+
+	*p++ = '.';
+
+	long double frac = value - static_cast<long long>(value);
+
+	for (int j = 0; j < precision; ++j)
+	{
+		frac *= 10.0;
+		int digit = static_cast<int>(frac);
+		*p++ = '0' + digit;
+		frac -= digit;
+	}
+
+	*p = '\0';
+	return static_cast<size_t>(p - buffer);
+}
+
+static int DoubleToScientific(char *lpBuffer, double value, int precision, bool uppercase)
+{
+	char *p = lpBuffer;
+
+	if (isnan(value))
+	{
+		*p++ = 'n';
+		*p++ = 'a';
+		*p++ = 'n';
+		*p = '\0';
+		return 3;
+	}
+
+	if (isinf(value))
+	{
+		if (value < 0)
+		{
+			*p++ = '-';
+		}
+		*p++ = uppercase ? 'I' : 'i';
+		*p++ = uppercase ? 'N' : 'n';
+		*p++ = uppercase ? 'F' : 'f';
 		*p = '\0';
 		return static_cast<int>(p - lpBuffer);
 	}
@@ -236,12 +86,35 @@ static int DoubleToStr(char *lpBuffer, double value, int precision)
 		value = -value;
 	}
 
+	int exponent = 0;
+
+	if (value != 0.0)
+	{
+		while (value >= 10.0)
+		{
+			value /= 10.0;
+			++exponent;
+		}
+		while (value < 1.0)
+		{
+			value *= 10.0;
+			--exponent;
+		}
+	}
+
 	long long intPart = static_cast<long long>(value);
-	p += Int64ToStr(p, intPart);
+	char intBuf[21];
+	_i64toa(intPart, intBuf, 10);
+
+	char *ip = intBuf;
+	while (*ip)
+	{
+		*p++ = *ip++;
+	}
 
 	*p++ = '.';
 
-	double frac = value - intPart;
+	double frac = value - static_cast<long long>(value);
 
 	for (int i = 0; i < precision; ++i)
 	{
@@ -251,48 +124,117 @@ static int DoubleToStr(char *lpBuffer, double value, int precision)
 		frac -= digit;
 	}
 
+	*p++ = uppercase ? 'E' : 'e';
+
+	if (exponent >= 0)
+	{
+		*p++ = '+';
+	}
+	else
+	{
+		*p++ = '-';
+		exponent = -exponent;
+	}
+
+	if (exponent >= 100)
+	{
+		*p++ = '0' + (exponent / 100);
+		*p++ = '0' + ((exponent / 10) % 10);
+		*p++ = '0' + (exponent % 10);
+	}
+	else
+	{
+		*p++ = '0' + ((exponent / 10) % 10);
+		*p++ = '0' + (exponent % 10);
+	}
+
 	*p = '\0';
 	return static_cast<int>(p - lpBuffer);
 }
 
-static int LongDoubleToStr(char *lpBuffer, long double value, int precision)
+static int DoubleToGeneral(char *lpBuffer, double value, int precision, bool uppercase)
 {
 	char *p = lpBuffer;
 
-	if (IsNan(value)) {
-		*p++ = 'n'; *p++ = 'a'; *p++ = 'n';
+	if (isnan(value))
+	{
+		*p++ = 'n';
+		*p++ = 'a';
+		*p++ = 'n';
 		*p = '\0';
 		return 3;
 	}
 
-	if (IsInf(value)) {
-		if (value < 0) *p++ = '-';
-		*p++ = 'i'; *p++ = 'n'; *p++ = 'f';
+	if (isinf(value))
+	{
+		if (value < 0)
+		{
+			*p++ = '-';
+			*p++ = uppercase ? 'I' : 'i';
+			*p++ = uppercase ? 'N' : 'n';
+			*p++ = uppercase ? 'F' : 'f';
+			*p = '\0';
+			return static_cast<int>(p - lpBuffer);
+		}
+
+		*p++ = uppercase ? 'I' : 'i';
+		*p++ = uppercase ? 'N' : 'n';
+		*p++ = uppercase ? 'F' : 'f';
 		*p = '\0';
 		return static_cast<int>(p - lpBuffer);
 	}
 
-	if (value < 0) {
+	if (value < 0.0)
+	{
 		*p++ = '-';
 		value = -value;
 	}
 
-	long long intPart = static_cast<long long>(value);
-	p += Int64ToStr(p, intPart);
+	int exponent = 0;
+	double normalized = value;
 
-	*p++ = '.';
-
-	long double frac = value - intPart;
-
-	for (int i = 0; i < precision; ++i) {
-		frac *= 10.0;
-		int digit = static_cast<int>(frac);
-		*p++ = '0' + digit;
-		frac -= digit;
+	if (value != 0.0)
+	{
+		while (normalized >= 10.0)
+		{
+			normalized /= 10.0;
+			++exponent;
+		}
+		while (normalized < 1.0)
+		{
+			normalized *= 10.0;
+			--exponent;
+		}
 	}
 
-	*p = '\0';
-	return static_cast<int>(p - lpBuffer);
+	if (exponent < -4 || exponent >= precision)
+	{
+		int len = DoubleToScientific(p, value, precision - 1, uppercase);
+		return static_cast<int>((p - lpBuffer) + len);
+	}
+	else
+	{
+		size_t len = FormatFloatingPoint(p, value, precision);
+
+		for (int i = static_cast<int>((p - lpBuffer) + len) - 1; i > 0; --i)
+		{
+			if (lpBuffer[i] == '0')
+			{
+				lpBuffer[i] = '\0';
+			}
+			else if (lpBuffer[i] == '.')
+			{
+				lpBuffer[i] = '\0';
+				break;
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		return static_cast<int>(strlen(lpBuffer));
+	}
 }
 
 struct FormatModifiers
@@ -326,27 +268,43 @@ struct FormatSpecHandler
 static int HandleDecimal(char *&pOut, size_t &remaining, va_list &args, const FormatModifiers &modifiers)
 {
 	char temp[21];
-	int len = 0;
+	size_t len = 0;
 
 	if (modifiers.isLongLong)
-		len = Int64ToStr(temp, va_arg(args, long long));
+	{
+		len = strlen(_i64toa(va_arg(args, long long), temp, 10));
+	}
 	else if (modifiers.isLong)
-		len = Int64ToStr(temp, static_cast<long long>(va_arg(args, long)));
+	{
+		len = strlen(_i64toa(static_cast<long long>(va_arg(args, long)), temp, 10));
+	}
 	else if (modifiers.isShort)
-		len = IntToStr(temp, static_cast<short>(va_arg(args, int)));
+	{
+		len = strlen(_itoa(static_cast<short>(va_arg(args, int)), temp, 10));
+	}
 	else if (modifiers.isChar)
-		len = IntToStr(temp, static_cast<signed char>(va_arg(args, int)));
+	{
+		len = strlen(_itoa(static_cast<signed char>(va_arg(args, int)), temp, 10));
+	}
 	else
-		len = IntToStr(temp, va_arg(args, int));
+	{
+		len = strlen(_itoa(va_arg(args, int), temp, 10));
+	}
 
-	if (modifiers.hasWidth && len < modifiers.width) {
+	if (modifiers.hasWidth && len < modifiers.width)
+	{
 		size_t pad = modifiers.width - len;
 		while (pad-- && remaining > 0)
-			*pOut++ = modifiers.paddingChar, --remaining;
+		{
+			*pOut++ = modifiers.paddingChar;
+			--remaining;
+		}
 	}
 
 	for (int i = 0; i < len && remaining > 0; ++i, --remaining)
+	{
 		*pOut++ = temp[i];
+	}
 
 	return 0;
 }
@@ -354,27 +312,43 @@ static int HandleDecimal(char *&pOut, size_t &remaining, va_list &args, const Fo
 static int HandleUnsigned(char *&pOut, size_t &remaining, va_list &args, const FormatModifiers &modifiers)
 {
 	char temp[21];
-	unsigned int len = 0;
+	size_t len = 0;
 
 	if (modifiers.isLongLong)
-		len = UInt64ToStr(temp, va_arg(args, unsigned long long));
+	{
+		len = strlen(_ui64toa(va_arg(args, unsigned long long), temp, 10));
+	}
 	else if (modifiers.isLong)
-		len = UInt64ToStr(temp, static_cast<uint64_t>(va_arg(args, unsigned long)));
+	{
+		len = strlen(_ui64toa(static_cast<uint64_t>(va_arg(args, unsigned long)), temp, 10));
+	}
 	else if (modifiers.isShort)
-		len = UIntToStr(temp, static_cast<unsigned short>(va_arg(args, unsigned int)));
+	{
+		len = strlen(_ultoa(static_cast<unsigned short>(va_arg(args, unsigned int)), temp, 10));
+	}
 	else if (modifiers.isChar)
-		len = UIntToStr(temp, static_cast<unsigned char>(va_arg(args, unsigned int)));
+	{
+		len = strlen(_ultoa(static_cast<unsigned char>(va_arg(args, unsigned int)), temp, 10));
+	}
 	else
-		len = UIntToStr(temp, va_arg(args, unsigned int));
+	{
+		len = strlen(_ultoa(va_arg(args, unsigned int), temp, 10));
+	}
 
-	if (modifiers.hasWidth && len < modifiers.width) {
+	if (modifiers.hasWidth && len < modifiers.width)
+	{
 		size_t pad = modifiers.width - len;
 		while (pad-- && remaining > 0)
-			*pOut++ = modifiers.paddingChar, --remaining;
+		{
+			*pOut++ = modifiers.paddingChar;
+			--remaining;
+		}
 	}
 
 	for (unsigned int i = 0; i < len && remaining > 0; ++i, --remaining)
+	{
 		*pOut++ = temp[i];
+	}
 
 	return 0;
 }
@@ -385,26 +359,42 @@ static int HandleHexLower(char *&pOut, size_t &remaining, va_list &args, const F
 	uint64_t val = 0;
 
 	if (modifiers.isLongLong)
+	{
 		val = va_arg(args, unsigned long long);
+	}
 	else if (modifiers.isLong)
+	{
 		val = va_arg(args, unsigned long);
+	}
 	else if (modifiers.isShort)
+	{
 		val = static_cast<unsigned short>(va_arg(args, unsigned int));
+	}
 	else if (modifiers.isChar)
+	{
 		val = static_cast<unsigned char>(va_arg(args, unsigned int));
+	}
 	else
+	{
 		val = va_arg(args, unsigned int);
+	}
 
-	int len = UInt64ToHex(temp, val, false);
+	size_t len = strlen(_ui64toa(val, temp, 16));
 
-	if (modifiers.hasWidth && len < modifiers.width) {
+	if (modifiers.hasWidth && len < modifiers.width)
+	{
 		size_t pad = modifiers.width - len;
 		while (pad-- && remaining > 0)
-			*pOut++ = modifiers.paddingChar, --remaining;
+		{
+			*pOut++ = modifiers.paddingChar;
+			--remaining;
+		}
 	}
 
 	for (int i = 0; i < len && remaining > 0; ++i, --remaining)
+	{
 		*pOut++ = temp[i];
+	}
 
 	return 0;
 }
@@ -415,26 +405,50 @@ static int HandleHexUpper(char *&pOut, size_t &remaining, va_list &args, const F
 	uint64_t value = 0;
 
 	if (modifiers.isLongLong)
+	{
 		value = va_arg(args, unsigned long long);
+	}
 	else if (modifiers.isLong)
+	{
 		value = static_cast<uint64_t>(va_arg(args, unsigned long));
+	}
 	else if (modifiers.isShort)
+	{
 		value = static_cast<unsigned short>(va_arg(args, unsigned int));
+	}
 	else if (modifiers.isChar)
+	{
 		value = static_cast<unsigned char>(va_arg(args, unsigned int));
+	}
 	else
+	{
 		value = va_arg(args, unsigned int);
+	}
 
-	int len = UInt64ToHex(temp, value, true);
+	size_t len = strlen(_ui64toa(value, temp, 16));
 
-	if (modifiers.hasWidth && len < modifiers.width) {
+	for (unsigned int i = 0; i < len; ++i)
+	{
+		if (temp[i] >= 'a' && temp[i] <= 'z')
+		{
+			temp[i] -= 32;
+		}
+	}
+
+	if (modifiers.hasWidth && len < modifiers.width)
+	{
 		size_t pad = modifiers.width - len;
 		while (pad-- && remaining > 0)
-			*pOut++ = modifiers.paddingChar, --remaining;
+		{
+			*pOut++ = modifiers.paddingChar;
+			--remaining;
+		}
 	}
 
 	for (int i = 0; i < len && remaining > 0; ++i, --remaining)
+	{
 		*pOut++ = temp[i];
+	}
 
 	return 0;
 }
@@ -446,18 +460,26 @@ static int HandleString(char *&pOut, size_t &remaining, va_list &args, const For
 	const char *str = va_arg(args, const char *);
 
 	if (!str)
+	{
 		str = const_cast<const char *>(null);
+	}
 
 	size_t len = strlen(str);
 
-	if (modifiers.hasWidth && len < modifiers.width) {
+	if (modifiers.hasWidth && len < modifiers.width)
+	{
 		size_t pad = modifiers.width - len;
 		while (pad-- && remaining > 0)
-			*pOut++ = modifiers.paddingChar, --remaining;
+		{
+			*pOut++ = modifiers.paddingChar;
+			--remaining;
+		}
 	}
 
 	for (size_t i = 0; str[i] && remaining > 0; ++i, --remaining)
+	{
 		*pOut++ = str[i];
+	}
 
 	return 0;
 }
@@ -466,13 +488,15 @@ static int HandleChar(char *&pOut, size_t &remaining, va_list &args, const Forma
 {
 	char ch = static_cast<char>(va_arg(args, int));
 
-	if (modifiers.hasWidth && 1 < modifiers.width) {
+	if (modifiers.hasWidth && 1 < modifiers.width)
+	{
 		size_t pad = modifiers.width - 1;
 		while (pad-- && remaining > 0)
 			*pOut++ = modifiers.paddingChar, --remaining;
 	}
 
-	if (remaining > 0) {
+	if (remaining > 0)
+	{
 		*pOut++ = ch;
 		--remaining;
 	}
@@ -484,16 +508,23 @@ static int HandlePointer(char *&pOut, size_t &remaining, va_list &args, const Fo
 {
 	uintptr_t ptr = reinterpret_cast<uintptr_t>(va_arg(args, void *));
 	char temp[2 + sizeof(uintptr_t) * 2];
-	int len = UInt64ToHex(temp, ptr, false);
 
-	if (modifiers.hasWidth && len < modifiers.width) {
+	size_t len = strlen(_ui64toa(ptr, temp, 16));
+
+	if (modifiers.hasWidth && len < modifiers.width)
+	{
 		size_t pad = modifiers.width - len;
 		while (pad-- && remaining > 0)
-			*pOut++ = modifiers.paddingChar, --remaining;
+		{
+			*pOut++ = modifiers.paddingChar;
+			--remaining;
+		}
 	}
 
 	for (int i = 0; i < len && remaining > 0; ++i, --remaining)
+	{
 		*pOut++ = temp[i];
+	}
 
 	return 0;
 }
@@ -501,20 +532,74 @@ static int HandlePointer(char *&pOut, size_t &remaining, va_list &args, const Fo
 static int HandleFloat(char *&pOut, size_t &remaining, va_list &args, const FormatModifiers &modifiers)
 {
 	char temp[64];
-	int len = modifiers.isLongDouble ?
-		LongDoubleToStr(temp, va_arg(args, long double), modifiers.hasPrecision ? modifiers.precision : 6) :
-		DoubleToStr(temp, va_arg(args, double), modifiers.hasPrecision ? modifiers.precision : 6);
+	int precision = modifiers.hasPrecision ? modifiers.precision : 6;
 
-	if (modifiers.hasWidth && len < modifiers.width) {
+	long double value = modifiers.isLongDouble
+		? va_arg(args, long double)
+		: static_cast<long double>(va_arg(args, double));
+
+	size_t len = FormatFloatingPoint(temp, value, precision);
+
+	if (modifiers.hasWidth && len < modifiers.width)
+	{
 		size_t pad = modifiers.width - len;
 		while (pad-- && remaining > 0)
-			*pOut++ = modifiers.paddingChar, --remaining;
+		{
+			*pOut++ = modifiers.paddingChar;
+			--remaining;
+		}
 	}
 
 	for (int i = 0; i < len && remaining > 0; ++i, --remaining)
+	{
 		*pOut++ = temp[i];
+	}
 
 	return 0;
+}
+
+static int HandleScientificInternal(
+	char *&pOut,
+	size_t &remaining,
+	va_list &args,
+	const FormatModifiers &modifiers,
+	bool uppercase)
+{
+	char temp[64];
+
+	int len = DoubleToScientific(
+		temp,
+		modifiers.isLongDouble ? static_cast<double>(va_arg(args, long double)) : va_arg(args, double),
+		modifiers.hasPrecision ? modifiers.precision : 6,
+		uppercase
+	);
+
+	if (modifiers.hasWidth && len < modifiers.width)
+	{
+		size_t pad = modifiers.width - len;
+		while (pad-- && remaining > 0)
+		{
+			*pOut++ = modifiers.paddingChar;
+			--remaining;
+		}
+	}
+
+	for (int i = 0; i < len && remaining > 0; ++i, --remaining)
+	{
+		*pOut++ = temp[i];
+	}
+
+	return 0;
+}
+
+static int HandleScientific(char *&pOut, size_t &remaining, va_list &args, const FormatModifiers &modifiers)
+{
+	return HandleScientificInternal(pOut, remaining, args, modifiers, false);
+}
+
+static int HandleScientificUpper(char *&pOut, size_t &remaining, va_list &args, const FormatModifiers &modifiers)
+{
+	return HandleScientificInternal(pOut, remaining, args, modifiers, true);
 }
 
 static int HandleTime(char *&pOut, size_t &remaining, va_list &, const FormatModifiers &)
@@ -646,7 +731,7 @@ static int HandleLastError(char *&pOut, size_t &remaining, va_list &, const Form
 
 	char temp[512];
 
-	int len = FormatMessageA(
+	size_t len = FormatMessageA(
 		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 		nullptr,
 		errorCode,
@@ -667,7 +752,7 @@ static int HandleLastError(char *&pOut, size_t &remaining, va_list &, const Form
 		char prefix[] = { 'U','n','k','n','o','w','n',' ','e','r','r','o','r',' ','(','\0' };
 		char suffix[] = { ')','\0' };
 		char numBuf[16];
-		int numLen = UIntToStr(numBuf, errorCode);
+		size_t numLen = strlen(_ultoa(errorCode, numBuf, 10));
 
 		len = 0;
 
@@ -683,14 +768,58 @@ static int HandleLastError(char *&pOut, size_t &remaining, va_list &, const Form
 		temp[len] = '\0';
 	}
 
-	if (static_cast<size_t>(len) > remaining)
-		len = static_cast<int>(remaining);
+	if (len > remaining)
+		len = remaining;
 
 	memcpy(pOut, temp, len);
 	pOut += len;
 	remaining -= len;
 
 	return 0;
+}
+
+static int HandleGeneralInternal(
+	char *&pOut,
+	size_t &remaining,
+	va_list &args,
+	const FormatModifiers &modifiers,
+	bool uppercase)
+{
+	char temp[64];
+
+	int len = DoubleToGeneral(
+		temp,
+		modifiers.isLongDouble ? static_cast<double>(va_arg(args, long double)) : va_arg(args, double),
+		modifiers.hasPrecision ? modifiers.precision : 6,
+		uppercase
+	);
+
+	if (modifiers.hasWidth && len < modifiers.width)
+	{
+		size_t pad = modifiers.width - len;
+		while (pad-- && remaining > 0)
+		{
+			*pOut++ = modifiers.paddingChar;
+			--remaining;
+		}
+	}
+
+	for (int i = 0; i < len && remaining > 0; ++i, --remaining)
+	{
+		*pOut++ = temp[i];
+	}
+
+	return 0;
+}
+
+static int HandleGeneral(char *&pOut, size_t &remaining, va_list &args, const FormatModifiers &modifiers)
+{
+	return HandleGeneralInternal(pOut, remaining, args, modifiers, false);
+}
+
+static int HandleGeneralUpper(char *&pOut, size_t &remaining, va_list &args, const FormatModifiers &modifiers)
+{
+	return HandleGeneralInternal(pOut, remaining, args, modifiers, true);
 }
 
 static FormatSpecHandler g_formatHandlers[] =
@@ -704,6 +833,10 @@ static FormatSpecHandler g_formatHandlers[] =
 	{ 'c', HandleChar },
 	{ 'p', HandlePointer },
 	{ 'f', HandleFloat },
+	{ 'e', HandleScientific },
+	{ 'E', HandleScientificUpper },
+	{ 'g', HandleGeneral },
+	{ 'G', HandleGeneralUpper },
 	{ 0, nullptr }
 };
 
